@@ -1,0 +1,20 @@
+property { 
+	
+	define {
+		t1_overFlow = tank1.overFlow;
+		t1_underFlow = tank1.underFlow;
+		t2_overFlow = tank2.overFlow;
+		t2_underFlow = tank2.underFlow;
+		t3_overFlow = tank3.overFlow;
+		t3_underFlow = tank3.underFlow;
+	}
+	Assertion{
+		safety_tank1_over: !(t1_overFlow);
+		safety_tank1_under: !(t1_underFlow);
+		safety_tank2_over: !(t2_overFlow);
+		safety_tank2_under: !(t2_underFlow);
+		safety_tank3_over: !(t3_overFlow);
+		safety_tank3_under: !(t3_underFlow);
+	}
+	
+}

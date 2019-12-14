@@ -1,0 +1,639 @@
+//Tank1 Initial Status
+env boolean tank1_low = true;
+env boolean tank1_medium = false;
+env boolean tank1_high = false;
+//----------------------------------------------------
+//Tank2 Initial Status
+env boolean tank2_low = true;
+env boolean tank2_medium = false;
+env boolean tank2_high = false;
+//----------------------------------------------------
+//Tank3 Initial Status
+env boolean tank3_low = true;
+env boolean tank3_medium = false;
+env boolean tank3_high = false;
+//----------------------------------------------------
+
+
+
+reactiveclass Tank1(5){
+	knownrebecs{
+		sensorTank1 sensor;
+		//CompromisedsensorTank1 sensor;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	Tank1(){
+		underFlow = false;
+		low = tank1_low; 
+		medium = tank1_medium;
+		high = tank1_high;
+		overFlow = false;
+	}
+	msgsrv status(){	
+		if (underFlow){
+		sensor.getStatus(0); 
+		}else if (low){
+		sensor.getStatus(1);
+		}else if (medium){
+		sensor.getStatus(2);
+		}else if (high){
+		sensor.getStatus(3);
+		}else if (overFlow){
+		sensor.getStatus(4);
+		}
+	}
+	msgsrv waterIncrease(){	
+		if (low) { 
+			low = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			high = true;
+		} else if (high) { 
+			high = false;
+			overFlow = true;
+		}
+		self.status();
+	}
+	msgsrv waterDecrease(){	
+		if (high) { 
+			high = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			low = true;
+		} else if (low) { 
+			low = false;
+			underFlow = true;
+		}
+		self.status();
+	}
+
+}
+
+
+reactiveclass sensorTank1(3){
+	knownrebecs{
+		Tank1	tank1;
+		PLC1	plc1;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	sensorTank1(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false; 	
+	 	//self.sense(); 
+	}
+	msgsrv sense(){	
+		tank1.status();	
+	}
+	msgsrv getStatus(int i) {
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false;	
+		// value 0 means "underFlow", value 1 means "low", value 2 means "medium", vaule 3 means "high", and value 4 means "overFlow"
+		if (i == 0) { 
+			underFlow = true;
+			plc1.sendStatus(0);
+		}else if (i == 1) {
+			low = true;
+			plc1.sendStatus(1);
+		}else if (i == 2) {
+			medium = true;
+			plc1.sendStatus(2);
+		}else if (i == 3) {
+			high = true;
+			plc1.sendStatus(3);
+		}else if (i == 4) {
+			overFlow = true;
+			plc1.sendStatus(4);
+		}	
+	}
+
+}
+
+
+
+reactiveclass PLC1(5){
+	knownrebecs{
+		Pump1 pump1;
+		//CompromisedPump1 pump1;
+		Valve valve;
+		//CompromisedValve valve;
+		sensorTank1 sensor;
+	}
+	statevars{
+		boolean plcAlarm;
+		boolean openReqPlc2;
+	}
+	PLC1(){	 
+		plcAlarm = false;
+		openReqPlc2 = false;	
+	}
+	msgsrv sendStatus(int j){
+		if (j == 1) { 
+			pump1.open();
+			valve.close();
+		}else if ((j == 3) && (openReqPlc2 == true)){ 
+				openReqPlc2 = false;
+				valve.open();
+		}else if (j == 3) {
+				pump1.close();
+				valve.close();
+		}else if ((j == 2) && (openReqPlc2 == true)) {
+				openReqPlc2 = false;
+				valve.open();
+				//pump1.open();
+		}else if (j == 2){
+				pump1.open();
+				valve.close();
+		} else {plcAlarm = true;}		
+	}
+	msgsrv openReq(){
+		openReqPlc2 = true;
+		sensor.sense();
+	}
+	msgsrv closeReq(){
+		valve.close();
+	}
+
+}
+
+reactiveclass Pump1(3){
+	knownrebecs{
+		Tank1 tank1;
+	}
+	statevars{
+		boolean open;
+	}
+	Pump1(){
+	 	open = false;	
+	}
+	msgsrv open(){	
+		open = true;
+		tank1.waterIncrease();
+	}
+	msgsrv close(){
+		open = false;	
+	}
+
+}
+
+
+
+reactiveclass Valve(7){
+	knownrebecs{
+		Tank1 tank1;
+		Tank2 tank2;
+	}
+	statevars{
+		boolean open;
+	}
+	Valve(){
+	 	open = false;	 	
+	}
+	msgsrv open(){	
+		open = true;
+		tank1.waterDecrease();
+		tank2.waterIncrease();
+	}
+	msgsrv close(){
+		open = false;	
+	}
+
+}
+
+
+
+reactiveclass Tank2(3){
+	knownrebecs{
+		sensorTank2 sensor;
+		reverseUnit unit;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	Tank2(){
+		underFlow = false;
+		low = tank2_low;
+		medium = tank2_medium;
+		high = tank2_high;
+		overFlow = false;
+	}
+msgsrv status(){	
+		if (underFlow){
+			sensor.getStatus(0); 
+		}else if (low){
+		sensor.getStatus(1);
+		}else if (medium){
+			sensor.getStatus(2);
+			unit.waterIncreaseTank3(); // water flows to tank3
+		}else if (high){
+			sensor.getStatus(3);
+			unit.cleanWater(); // clean water flows out when tank2 water-level reaches high
+		}else if (overFlow){
+			sensor.getStatus(4);
+		}
+	}
+	msgsrv waterIncrease(){	
+		if (low) { 
+			low = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			high = true;
+		} else if (high) { 
+			high = false;
+			overFlow = true;
+		}
+		self.status();
+	}
+	msgsrv waterDecrease(){	
+		if (high) { 
+			high = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			low = true;
+		} else if (low) { 
+			low = false;
+			underFlow = true;
+		}
+		self.status();
+	}
+
+}
+
+
+reactiveclass sensorTank2(3){
+	knownrebecs{
+		Tank2	tank2;
+		PLC2	plc2;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	sensorTank2(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false; 
+		self.sense();	
+	}
+	msgsrv sense(){	
+		tank2.status();	
+	}
+	msgsrv getStatus(int i) {	
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false; 
+		if (i == 0) {
+			underFlow = true;
+			plc2.sendStatus(0);
+		}else if (i == 1) {
+			low = true;
+			plc2.sendStatus(1);
+		}else if (i == 2) {
+			low = true;
+			plc2.sendStatus(2);
+		}else if (i == 3) {
+			high = true;
+			plc2.sendStatus(3);
+		}else if (i == 4) {
+			overFlow = true;
+			plc2.sendStatus(4);
+		}	
+	}
+
+}
+
+
+
+reactiveclass PLC2(5){
+	knownrebecs{
+		PLC1 plc1;
+		PLC3 plc3;
+		sensorTank2 sensor;
+	}
+	statevars{
+		boolean plcAlarm;
+	}
+	PLC2(){	 
+		plcAlarm = false;
+	}
+	msgsrv sendStatus(int j){
+		if (j == 0) { 
+			plcAlarm = true;
+		}else if (j == 3){ 
+			plc1.closeReq();
+		}else if (j == 2) { 
+			delay(1);
+			plc3.onReq();  //assumption is that when water-level-tank2 = medium ---> onReq to plc3
+		}else if (j == 1) { 
+			plc1.openReq(); //assumption is that when water-level-tank2 = low ---> openReq to plc1
+		} 
+	}
+
+}
+
+
+reactiveclass reverseUnit(5){
+	knownrebecs{
+		Tank2 tank2;
+		Tank3 tank3;
+	}
+	msgsrv waterIncreaseTank3(){
+		tank3.waterIncrease();
+	}
+	msgsrv cleanWater(){
+		tank2.waterDecrease() after(2);// 
+	}
+}
+
+reactiveclass Tank3(5){
+	knownrebecs{
+		sensorTank3 sensor;
+		Tank2 tank2;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	Tank3(){
+		underFlow = false;
+		low = tank3_low;
+		medium = tank3_medium;
+		high = tank3_high;
+		overFlow = false; 	
+	}
+	msgsrv status(){	
+		if (underFlow){
+		sensor.getStatus(0); // 1 means status= low, 2 means status= medium, ...
+		}else if (low){
+		sensor.getStatus(1);
+		}else if (medium){
+		sensor.getStatus(2);
+		}else if (high){
+		sensor.getStatus(3);
+		}else if (overFlow){
+		sensor.getStatus(4);
+		}
+	}
+	msgsrv waterIncrease(){	
+		if (low) { 
+			low = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			high = true;
+		} else if (high) { 
+			high = false;
+			overFlow = true;
+		}
+		self.status();
+	}
+	msgsrv waterDecrease(){	
+		if (high) { 
+			high = false;
+			medium = true;
+		} else if (medium) { 
+			medium = false;
+			low = true;
+		} else if (low) { 
+			low = false;
+			underFlow = true;
+		}
+		self.status();
+	}
+	msgsrv waterWholeDeplete(){	
+		underFlow = false;
+		low = true;
+		medium = false;
+		high = false;
+		overFlow = false;
+		self.status(); 
+		delay(1);
+		tank2.waterIncrease();
+	}
+	
+}
+
+reactiveclass sensorTank3(3){
+	knownrebecs{
+		Tank3	tank3;
+		PLC3	plc3;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+	}
+	sensorTank3(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false; 
+		//self.sense();	
+	}
+	msgsrv sense(){	
+		tank3.status();	
+	}
+	msgsrv getStatus(int i) {	
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false; 
+		if (i == 0) {
+			underFlow = true;
+			plc3.sendStatus(0);
+		}else if (i == 1) {
+			low = true;
+			plc3.sendStatus(1);
+		}else if (i == 2) {
+			medium = true;
+			plc3.sendStatus(2);
+		}else if (i == 3) {
+			high = true;
+			plc3.sendStatus(3);
+		}else if (i == 4) {
+			overFlow = true;
+			plc3.sendStatus(4);
+		}	
+	}
+
+}
+
+reactiveclass PLC3(5){
+	knownrebecs{
+		Pump3 pump3;
+		Tank3 tank3;
+		sensorTank3 sensor;
+	}
+	statevars{
+		boolean plcAlarm;
+		boolean onReqPlc2;
+	}
+	PLC3(){	 
+		plcAlarm = false;
+		onReqPlc2 = false;
+	}
+	msgsrv sendStatus(int j){
+		if (j == 0) { 
+			plcAlarm = true;
+		}else if (j == 1) { 
+			pump3.close();
+		}else if ((j == 2 && onReqPlc2 ) || (j == 3 && onReqPlc2)){
+			onReqPlc2 == false;
+			pump3.open();
+		}else if (j == 3) {
+			tank3.waterWholeDeplete();
+			pump3.close();
+		}else if (j == 2) {
+			pump3.close();	
+		}		
+	}
+	msgsrv onReq(){
+		onReqPlc2 = true;
+		sensor.sense();
+	}
+
+}
+
+reactiveclass Pump3(5){
+	knownrebecs{
+		Tank2 tank2;
+		Tank3 tank3;
+	}
+	statevars{
+		boolean open;
+	}
+	Pump3(){
+	 	open = false;	 	
+	}
+	msgsrv open(){	
+		open = true;
+		tank3.waterDecrease();
+		delay(1);
+		tank2.waterIncrease();
+		//delay(1);
+		//tank3.waterDecrease();
+		
+	}
+	msgsrv close(){
+		open = false;	
+	}
+
+}
+
+
+
+//--------------------------Attacker (MITM)------------------------------------
+// It injects fake messages and commands in the wireless channel between one plc and one sensor/actuator (valve or pump)
+reactiveclass AttackerMITM(3){
+	knownrebecs{
+		PLC1	plc1;
+		PLC2	plc2;
+		PLC3	plc3;
+		Pump1	pump1;
+		Pump3	pump3;
+		Valve	valve;
+	}
+	statevars{
+		int status; 
+		int pointTime; 
+	}
+	AttackerMITM(int chl, int stat, int pTime){
+		status = stat;
+		pointTime = pTime;
+	 	if (chl == 1) { //chl is channel number, chl = 1 (channelPlc1S), chl = 2 (channelPlc1P1), chl = 3 (channelPlc1V), chl = 4 (channelPlc2S), chl = 5 (channelPlc2P3), chl = 6 (channelPlc3S)
+	 		self.channelPlc1S(status, pointTime);
+	 	}else if (chl == 2) {
+	 		self.channelPlc1P1(status, pointTime);
+	 	}else if (chl == 3) {
+	 		self.channelPlc1V(status, pointTime);
+	 	}else if (chl == 4) {
+	 		self.channelPlc2S(status, pointTime);
+	 	}else if (chl == 5) {
+	 		self.channelPlc3P3(status, pointTime);
+	 	}else if (chl == 6) {
+	 		self.channelPlc3S(status, pointTime);
+	 	}	 	
+	}
+	msgsrv channelPlc1S(int s, int p){	//status = the value between 1 to 3 for the sensor//pointTime = the value between 0 to 3
+		plc1.sendStatus(s) after(p);	
+	}
+	msgsrv channelPlc1P1(int s, int p){ //status = the value between 0 (close) to 1 (open) //pointTime = the value between 0 to 3
+		if(s == 1) {
+			pump1.open() after(p);
+		}else if(s == 0) {
+			pump1.close() after(p);	
+		}
+	}
+	msgsrv channelPlc1V(int s, int p){	//status = the value between 0 (close) to 1 (open) //pointTime = the value between 0 to 3
+		if(s == 1) {
+			valve.open() after(p);
+		}else if(s == 0) {
+			valve.close() after(p);	
+		}
+	}
+	msgsrv channelPlc2S(int s, int p){	
+		plc2.sendStatus(s) after(p);	
+	}
+	msgsrv channelPlc3P3(int s, int p){	
+		if(s == 1) {
+			pump3.open() after(p);
+		}else if(s == 0) {
+			pump3.close() after(p);	
+		}
+	}
+	msgsrv channelPlc3S(int s, int p){	//status = the value between 0 to 3 for the sensor//pointTime = the value between 0 to 3
+		plc3.sendStatus(s) after(p);	
+	}
+}
+
+
+main{
+	PLC1 plc1(pump1, valve, sensorT1):(); 					//plc1 is valid
+	PLC2 plc2(plc1, plc3, sensorT2):();
+	PLC3 plc3(pump3, tank3, sensorT3):();
+	Tank1 tank1(sensorT1):();								//tank1 is valid
+	Tank2 tank2(sensorT2, unit):();
+	Tank3 tank3(sensorT3, tank2):();
+	sensorTank1 sensorT1(tank1, plc1):();
+	sensorTank2 sensorT2(tank2, plc2):();	
+	sensorTank3 sensorT3(tank3, plc3):();
+	Pump1 pump1(tank1):();
+	Pump3 pump3(tank2, tank3):();
+	Valve valve(tank1, tank2):();							//valve is valid
+	reverseUnit unit(tank2, tank3):();
+	AttackerMITM attackerMITM1(plc1, plc2, plc3, pump1, pump3, valve):(4,2,2); //(chl, status, pointTime) 
+	AttackerMITM attackerMITM2(plc1, plc2, plc3, pump1, pump3, valve):(4,2,2); 
+	//...............................attacker info...............................
+	/*
+	chl: is channel number, 		Channels
+		chl = 1 (channelPlc1S),     plc1 <----- s
+		chl = 2 (channelPlc1P1), 	plc1 -----> p1
+		chl = 3 (channelPlc1V), 	plc1 -----> v
+		chl = 4 (channelPlc2S), 	plc2 <----- s
+		chl = 5 (channelPlc3P3),	plc3 -----> p3
+		chl = 6 (channelPlc3S)		plc3 <----- s
+	status for sensor: 
+		the value between (1 to 3) 
+	pointTime for sensor: 
+		is the value between (0 to 3)
+	status for pump/valve: 
+		the value between 0 (close) to 1 (open)
+	pointTime for pump/valve: 
+		is the value between (0 to 3)
+	*/
+}
