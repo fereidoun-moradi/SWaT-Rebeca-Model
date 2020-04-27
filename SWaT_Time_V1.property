@@ -7,14 +7,18 @@ property {
 		t2_underFlow = tank2.underFlow;
 		t3_overFlow = tank3.overFlow;
 		t3_underFlow = tank3.underFlow;
+		//produceWater = tank2.drinkableWater;
 	}
 	Assertion{
+
 		safety_tank1_over: !(t1_overFlow);
 		safety_tank1_under: !(t1_underFlow);
 		safety_tank2_over: !(t2_overFlow);
 		safety_tank2_under: !(t2_underFlow);
 		safety_tank3_over: !(t3_overFlow);
 		safety_tank3_under: !(t3_underFlow);
+		//safety_allTanks : !(t1_overFlow || t1_underFlow || t2_overFlow || t2_underFlow || t3_overFlow || t3_underFlow);
+		//drinkableWater: !(produceWater);
 	}
 	
 }
