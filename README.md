@@ -3,6 +3,7 @@ The developed  <a href="https://itrust.sutd.edu.sg/testbeds/secure-water-treatme
 
 <body>
     <p> <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Picture.pdf">SWaT Picture</a>.</p>
-    <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Actor_Model.pdf">SWaT actor model</a>.</p>
     <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Abstact_Architecture.pdf"> SWaT abstact architecture</a>.</p>
+    <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Actor_Model.pdf">SWaT actor model</a>.</p>
+    <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Time_V1.rebeca">SWaT Rebeca model</a>.</p>
   </body>
