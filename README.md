@@ -4,5 +4,5 @@ The developed  <a href="https://itrust.sutd.edu.sg/testbeds/secure-water-treatme
 <body>
     <p> SWaT Picture<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Picture.pdf"> show</a>.</p>
     <p> SWaT actor model<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Actor_Model.pdf"> Actor_Model</a>.</p>
-    <p> SWaT abstact architecture<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Abstact_Architecture.pdf"> abstact_architecture</a>.</p>
+    <p> SWaT abstact architecture<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Abstact_Architecture.pdf"> Abstact_architecture</a>.</p>
   </body>
