@@ -13,7 +13,7 @@ env boolean s3Compromised = false;
 env int s3Compromised_time = 0;
 //----------------------------------------------------
 // Operation time for changing water level in each tank
-env int operationTimeTank = 2; //seconds
+env int operationTimeTank = 1000; //seconds
 //----------------------------------------------------
 // Sense interval for each sensor
 env int senseInterval = 1;
