@@ -1119,7 +1119,7 @@ main{
 	maliciousMsg for sensor: 
 		the value between (1 to 3) 
 	attackTime for sensor: 
-		is the value between (0,1000,2000,3000,...,6000)
+		is the value (0,1000,2000,3000,...,6000)
 	maliciousMsg for valve: 
 		the value between 0 (close) to 1 (open)
 	attackTime for pump: 
