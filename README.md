@@ -7,3 +7,7 @@ The developed  <a href="https://itrust.sutd.edu.sg/testbeds/secure-water-treatme
     <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Actor_Model.pdf">SWaT actor model</a>.</p>
     <p><a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Time_V1.rebeca">SWaT Rebeca model</a>.</p>
   </body>
+
+# Lingua Franca
+Lingua Franca programing language is used to develop an executable file. The <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT.lf">code</a> is compiled by Lingua Franca compiler.
+The code <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_LF_Diagram.png">diagram</a> shows the reactors and the reactions.
