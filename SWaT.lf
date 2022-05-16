@@ -1,0 +1,541 @@
+target Cpp {
+    fast: false,
+    threads: 1,
+    timeout: 45 sec
+};
+
+import Monitor.lf; 
+reactor Tank1 { 
+	output reportStatus:int; 
+	
+	input waterIncrease:int; 
+	input waterDecrease:int; 
+	input status:int;
+	
+	input comp_status:int;
+	
+	logical action process:int; 
+	
+	state waterLevel:int(1);
+	state begin:bool(true); 
+	state operationTimeTank:time(2 sec); //Amount of time for increase or decrease 
+    
+	reaction(status) -> reportStatus {=  
+	    auto elapsed_time = get_elapsed_logical_time();
+		auto elapsed_secs = std::chrono::duration_cast<std::chrono::seconds>(elapsed_time);
+		std::cout << "(Current logical time is: " << elapsed_secs << ")" << std::endl;
+	    if(waterLevel == 1){
+            std::cout << "\nwaterLevel for Tank1 is: LOW" << std::endl;
+        }else if(waterLevel == 2) {
+            std::cout << "\nwaterLevel for Tank1 is: MEDIUM" << std::endl;
+        }else if(waterLevel == 3) {
+            std::cout << "\nwaterLevel for Tank1 is: HIGH" << std::endl;
+            reportStatus.set(waterLevel);
+        }else if(waterLevel > 3) {
+            std::cout << "\nwaterLevel for Tank1 is: OVERFLOW" << std::endl;
+        }else if(waterLevel < 1) {
+            std::cout << "\nwaterLevel for Tank1 is: UNDERFLOW" << std::endl;
+        }
+        
+        if (begin) {
+            reportStatus.set(waterLevel);
+            begin = false;
+        }
+   	=}
+	
+	reaction(waterDecrease) -> process {=
+        if(!waterIncrease.is_present()){
+             process.schedule(-1 , operationTimeTank);
+        }
+    =}
+	
+	reaction(waterIncrease) -> process {=
+        if(!waterDecrease.is_present()){
+            process.schedule(1 , operationTimeTank);  
+        } 
+    =}
+	
+    //In case of happening waterDecrease and waterIncrease at a same time
+    reaction (waterDecrease, waterIncrease) -> process {=
+        if(waterDecrease.is_present() && waterIncrease.is_present()){
+            process.schedule(0 , operationTimeTank);
+        }
+     =}
+	///.........
+	
+	reaction(process) -> reportStatus {=
+			waterLevel += *process.get();
+			reportStatus.set(waterLevel);
+	=}
+	
+	
+}
+	
+reactor sensorTank1 {
+	output out:int;
+	output sense:int;
+	
+	input reportStatus:int; 
+
+	timer start(0, 1 sec); // Time interval
+
+	reaction(start) -> sense{=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get()); 
+	=}
+	
+}
+
+reactor comp_sensorTank1 {
+	output out:int;
+	output sense:int;
+	
+	input reportStatus:int; 
+
+	timer start(0, 1 sec); // Time interval
+
+	reaction(start) -> sense{=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get()); 
+	=}
+	
+}
+
+reactor Tank2 { 
+	output reportStatus:int;
+	output unit:int;
+	input waterDecrease:int;
+	input waterIncrease_V:int;
+	input waterIncrease_P:int;
+	input status:int;
+	
+	input comp_status:int;
+	
+	state waterLevel:int(1);
+	state begin:bool(true);
+	state PumpPushbackWater:bool(false);
+	state operationTimeTank:time(2 sec);
+	logical action process:int;
+
+	reaction(status) -> reportStatus {= 
+	    if(waterLevel == 1){
+            std::cout << "waterLevel for Tank2 is: LOW" << std::endl;
+        }else if(waterLevel == 2) {
+            std::cout << "waterLevel for Tank2 is: MEDIUM" << std::endl;
+        }else if(waterLevel == 3) {
+            std::cout << "waterLevel for Tank2 is: HIGH" << std::endl;
+        }else if(waterLevel > 3) {
+            std::cout << "waterLevel for Tank2 is: OVERFLOW" << std::endl;
+        }else if(waterLevel < 1) {
+            std::cout << "waterLevel for Tank2 is: UNDERFLOW" << std::endl;
+        }
+        
+        if (begin){
+            reportStatus.set(waterLevel);
+            begin = false;
+        }
+   	 =}	
+
+	reaction(waterIncrease_V) -> process {=
+        process.schedule(1 , operationTimeTank);
+    =}
+    
+	reaction(waterIncrease_P) -> process {=
+        process.schedule(1 , operationTimeTank);
+        PumpPushbackWater = true;
+    =}
+
+	reaction(process) -> reportStatus, unit {=
+			waterLevel += *process.get(); 
+			if (*process.get() == 1 && waterLevel == 3 && !PumpPushbackWater){ 
+            	waterLevel -= 1; 
+                unit.set(0);
+            } else if (*process.get() == 1 && waterLevel == 3 && PumpPushbackWater){ 
+                		PumpPushbackWater = false;
+                		unit.set(1);
+            } 
+            reportStatus.set(waterLevel);
+	=}
+    
+    reaction(waterDecrease) -> process {=
+        process.schedule(-1 , operationTimeTank); 
+    =}
+    
+    
+}
+	
+reactor sensorTank2 {
+	input reportStatus:int; 
+	output out:int;
+	output sense:int;
+
+	timer start(0, 1 sec);
+
+	reaction(start) -> sense{=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get());
+	=}	
+}
+
+reactor comp_sensorTank2 {
+	input reportStatus:int; 
+	output out:int;
+	output sense:int;
+
+	timer start(0, 1 sec);
+
+	reaction(start) -> sense{=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get());
+	=}	
+}
+
+
+reactor Tank3 { 
+	output reportStatus:int;
+	input waterDecrease:int; 
+	input waterIncrease:int;
+	input status:int;
+	
+	input comp_status:int;
+	
+	state waterLevel:int(1);
+	state begin:bool(true);
+	state operationTimeTank:time(2 sec);
+	logical action process:int;
+
+	reaction(status) -> reportStatus {= 
+	    if(waterLevel == 1){
+            std::cout << "waterLevel for Tank3 is: LOW" << std::endl;
+        }else if(waterLevel == 2) {
+            std::cout << "waterLevel for Tank3 is: HIGH" << std::endl;
+        }else if(waterLevel > 2) {
+            std::cout << "waterLevel for Tank3 is: OVERFLOW" << std::endl;
+        }else if(waterLevel < 1) {
+            std::cout << "waterLevel for Tank3 is: UNDERFLOW" << std::endl;
+        }
+        
+        if (begin){
+            reportStatus.set(waterLevel);
+            begin = false;
+        }
+   	 =}	
+	
+	reaction(waterIncrease) -> process {=
+        process.schedule(1 , 0s); 
+    =}
+    
+	reaction(waterDecrease) -> process {=
+        process.schedule(-1 , operationTimeTank); 
+    =}
+	
+	reaction(process) -> reportStatus {=
+			waterLevel += *process.get();
+			reportStatus.set(waterLevel);
+	=}
+	
+	
+}
+	
+reactor sensorTank3 {
+	input reportStatus:int; 
+	output out:int;
+	output sense:int;
+
+	timer start(0, 1 sec);
+
+	reaction(start) -> sense {=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get());
+	=}
+	
+}
+
+reactor comp_sensorTank3 {
+	input reportStatus:int; 
+	output out:int;
+	output sense:int;
+
+	timer start(0, 1 sec);
+
+	reaction(start) -> sense {=
+	    sense.set(1);
+   	 =}	
+   	 
+	reaction(reportStatus) -> out {=
+		out.set(reportStatus.get());
+	=}
+	
+}
+
+reactor Pump1 {
+	input on_off:int;
+	output out:int;
+
+	reaction(on_off) -> out {=
+		out.set(on_off.get());	
+		std::cout << "Pump1 actuates Tank1" << std::endl;
+	=}
+	
+}
+
+reactor Valve {
+	input open_close:int;
+	output out:int;
+
+	reaction(open_close) -> out {=
+		out.set(open_close.get());
+		std::cout << "Valve actuates Tank1 and Tank2" << std::endl;
+	=}
+}
+
+reactor Pump2 {
+	input on_off:int;
+	output out:int;
+
+	reaction(on_off) -> out {=
+		out.set(on_off.get());
+		std::cout << "Pump2 actuates Tank3" << std::endl;
+	=}
+}
+
+reactor reverseUnit {
+	input in:int;
+	output waterIncrease:int;
+	output cleanWater:int;
+
+	reaction (in) -> waterIncrease, cleanWater {=
+       if(*in.get() == 1){
+        	cleanWater.set(1);
+        	std::cout << ".....DRINCKING WATER STARTS TO RELEASE....." << std::endl;
+        } else if(*in.get() == 0){
+				waterIncrease.set(1);
+		}
+    =}
+	
+	
+}
+
+reactor PLC1 { 
+	output pump:int;
+	output valve:int;
+	
+	input processSensorData:int;
+	input open_Req:int;
+	
+	state openReqPlc2:bool(false);
+	
+	reaction(open_Req) {=
+            if(*open_Req.get() == 1){
+                openReqPlc2 = true;
+            } else {
+                openReqPlc2 = false;
+            }
+	=}	
+	
+	reaction(processSensorData) -> pump, valve {=
+        if(*processSensorData.get() == 1) {
+            pump.set(1);
+            std::cout << "PLC1 turns Pump1 on"<< "\n";   
+        } else if(*processSensorData.get() == 2 && openReqPlc2 == true) {
+            openReqPlc2 = false;
+            pump.set(1);
+            valve.set(1);
+            std::cout << "PLC1 turns Pump1 on and opens Valve"<< "\n";
+        } else if(*processSensorData.get() == 2) {
+            pump.set(1);
+            std::cout << "PLC1 turns Pump1 on"<< "\n";
+        } else if(*processSensorData.get() == 3 && openReqPlc2 == true){
+            openReqPlc2 = false;
+            valve.set(1);
+            std::cout << "PLC1 opens Valve"<< "\n";
+        }	 
+	=}
+	
+}
+
+reactor PLC2 { 
+	output open_Req:int;
+	output on_Req:int;
+	input processSensorData:int;
+	
+	state alternativeReq:bool(true);
+	
+	reaction(processSensorData) -> open_Req, on_Req {=
+            if(*processSensorData.get() == 1) {
+              		open_Req.set(1);
+            		std::cout << "PLC2 sends PLC1 an openRequest message"<< "\n";   
+     		}else if(*processSensorData.get() == 2 && alternativeReq) {
+						open_Req.set(1);
+            			std::cout << "PLC2 sends PLC1 an openRequest message"<< "\n"; 
+						on_Req.set(1);
+                		std::cout << "PLC2 sends PLC3 an onRequest message"<< "\n";
+                		alternativeReq = false;
+			} else if(*processSensorData.get() == 2) {
+                open_Req.set(0);
+            	std::cout << "PLC2 sends PLC1 an closeRequest message"<< "\n"; 
+                on_Req.set(1);
+            	std::cout << "PLC2 sends PLC3 an onRequest message"<< "\n";
+                alternativeReq = true;
+            }
+	=}
+	
+}
+
+reactor PLC3 { 
+	output pump:int;
+	
+	input processSensorData:int;
+	input on_Req:int;
+	
+	state onReqPlc2:bool(false);
+	
+	reaction(on_Req) {=
+            onReqPlc2 = true;
+	=}	
+	
+	reaction(processSensorData) -> pump {=
+           if(*processSensorData.get() == 2 && onReqPlc2 == true) {
+            	onReqPlc2 = false;
+            	pump.set(1);
+            	std::cout << "PLC3 turns Pump2 on"<< "\n";
+            } 
+	=}
+	
+}
+
+
+main reactor SWaT {
+	Tank1 = new Tank1();
+	sensorTank1 = new sensorTank1();
+	comp_sensorTank1 = new comp_sensorTank1();
+	Pump1 = new Pump1();
+	Valve = new Valve();
+	PLC1 = new PLC1();
+	
+	Tank2 = new Tank2();
+	sensorTank2 = new sensorTank2();
+	comp_sensorTank2 = new comp_sensorTank2();
+	reverseUnit = new reverseUnit();
+	PLC2 = new PLC2();
+	
+	Tank3 = new Tank3();
+	sensorTank3 = new sensorTank3();
+	comp_sensorTank3 = new comp_sensorTank3();
+	Pump2 = new Pump2();
+	PLC3 = new PLC3();
+	monitor = new Monitoring();
+
+	
+	sensorTank1.sense -> Tank1.status;
+	comp_sensorTank1.sense -> Tank1.comp_status;
+	sensorTank2.sense -> Tank2.status;
+	comp_sensorTank2.sense -> Tank2.comp_status;
+	sensorTank3.sense -> Tank3.status;
+	comp_sensorTank3.sense -> Tank3.comp_status;
+	
+	Tank1.reportStatus -> sensorTank1.reportStatus after 1 sec;
+	Tank1.reportStatus -> comp_sensorTank1.reportStatus after 1 sec;
+	sensorTank1.out -> PLC1.processSensorData; 
+	comp_sensorTank1.out -> monitor.comp_getSense1;
+	sensorTank1.out -> monitor.getSense1;
+	
+	
+	Tank2.reportStatus -> sensorTank2.reportStatus after 1 sec;
+	Tank2.reportStatus -> comp_sensorTank2.reportStatus after 1 sec;
+	sensorTank2.out -> PLC2.processSensorData; 
+	comp_sensorTank2.out -> monitor.comp_getSense2;
+	sensorTank2.out -> monitor.getSense2;
+	
+	Tank3.reportStatus -> sensorTank3.reportStatus after 1 sec; 
+	Tank3.reportStatus -> comp_sensorTank3.reportStatus after 1 sec;
+	sensorTank3.out -> PLC3.processSensorData; 
+	comp_sensorTank3.out -> monitor.comp_getSense3;
+	sensorTank1.out -> monitor.getSense3;
+	
+	PLC2.open_Req -> PLC1.open_Req;
+	PLC2.on_Req -> PLC3.on_Req;
+	//PLC1.pump -> Pump1.on_off;
+	PLC1.pump -> monitor.pump1;
+	monitor.pump_cmd_1-> Pump1.on_off;
+	
+	//PLC1.valve -> Valve.open_close;
+	PLC1.valve -> monitor.valve;
+	monitor.valve_cmd-> Valve.open_close;
+	//PLC3.pump -> Pump2.on_off;
+	PLC3.pump -> monitor.pump2;
+	monitor.pump_cmd_2-> Pump2.on_off;
+	
+	Pump1.out -> Tank1.waterIncrease;
+	Valve.out -> Tank1.waterDecrease;
+	Valve.out -> Tank2.waterIncrease_V;
+	Pump2.out-> Tank3.waterDecrease;
+	Pump2.out -> Tank2.waterIncrease_P;
+
+	Tank2.unit -> reverseUnit.in;
+	reverseUnit.waterIncrease -> Tank3.waterIncrease;
+	reverseUnit.cleanWater -> Tank2.waterDecrease;
+
+} 
+
+/* 
+main reactor SWaT {
+	Tank1 = new Tank1();
+	sensorTank1 = new sensorTank1();
+	Pump1 = new Pump1();
+	Valve = new Valve();
+	PLC1 = new PLC1();
+	
+	Tank2 = new Tank2();
+	sensorTank2 = new sensorTank2();
+	reverseUnit = new reverseUnit();
+	PLC2 = new PLC2();
+	
+	Tank3 = new Tank3();
+	sensorTank3 = new sensorTank3();
+	Pump2 = new Pump2();
+	PLC3 = new PLC3();
+
+	sensorTank1.sense -> Tank1.status;
+	sensorTank2.sense -> Tank2.status;
+	sensorTank3.sense -> Tank3.status;
+	
+	Tank1.reportStatus -> sensorTank1.reportStatus after 1 sec;
+	sensorTank1.out -> PLC1.processSensorData; 
+	Tank2.reportStatus -> sensorTank2.reportStatus after 1 sec;
+	sensorTank2.out -> PLC2.processSensorData;  
+	Tank3.reportStatus -> sensorTank3.reportStatus after 1 sec; 
+	sensorTank3.out -> PLC3.processSensorData; 
+	
+	PLC2.open_Req -> PLC1.open_Req;
+	PLC2.on_Req -> PLC3.on_Req;
+	PLC1.pump -> Pump1.on_off;
+	PLC1.valve -> Valve.open_close;
+	PLC3.pump -> Pump2.on_off;
+	
+	Pump1.out -> Tank1.waterIncrease;
+	Valve.out -> Tank1.waterDecrease;
+	Valve.out -> Tank2.waterIncrease_V;
+	Pump2.out-> Tank3.waterDecrease;
+	Pump2.out -> Tank2.waterIncrease_P;
+
+	Tank2.unit -> reverseUnit.in;
+	reverseUnit.waterIncrease -> Tank3.waterIncrease;
+	reverseUnit.cleanWater -> Tank2.waterDecrease;
+
+}*/
