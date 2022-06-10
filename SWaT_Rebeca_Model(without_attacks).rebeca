@@ -881,78 +881,6 @@ reactiveclass Pump2(5){
 
 }
 
-
-//--------------------------Attacker------------------------------------
-// It injects fake messages and commands in the wireless channel between one plc and one sensor/actuator (valve or pump)
-reactiveclass Attacker(3){
-	knownrebecs{
-		PLC1	plc1;
-		PLC2	plc2;
-		PLC3	plc3;
-		Pump1	pump1;
-		Pump2	pump2;
-		Valve	valve;
-	}
-	statevars{
-		int msg; 
-		int attackTime; 
-	}
-	Attacker(int chl, int maliciousMsg, int time){
-		msg = maliciousMsg;
-		attackTime = time;
-	 	//chl = 1 (channelPlc1P1), chl = 2 (channelPlc1S), chl = 3 (channelPlc1V), 
-	 	//chl = 4 (channelPlc2S), chl = 5 (channelPlc3P2), chl = 6 (channelPlc3S)
-	 	if (chl == 1) { 
-	 		self.channelPlc1P1(msg, attackTime);
-	 	}else if (chl == 2) {
-	 		self.channelPlc1S(msg, attackTime);
-	 	}else if (chl == 3) {
-	 		self.channelPlc1V(msg, attackTime);
-	 	}else if (chl == 4) {
-	 		self.channelPlc2S(msg, attackTime);
-	 	}else if (chl == 5) {
-	 		self.channelPlc3P2(msg, attackTime);
-	 	}else if (chl == 6) {
-	 		self.channelPlc3S(msg, attackTime);
-	 	}	 	
-	}
-	//v = the value between 1 to 3 for the sensor (low,medium,and high)
-	//k = the value between 0 to 27 (duration cycle of start-up to flow drinkablewater out)
-	msgsrv channelPlc1S(int v, int k){	
-		plc1.processSensorData(v) after(k);	
-	}
-	//v = the value between 0 (off) to 1 (on) 
-	msgsrv channelPlc1P1(int v, int k){ 
-		if(v == 1) {
-			pump1.on() after(k);
-		}else if(v == 0) {
-			pump1.off() after(k);	
-		}
-	}
-	//status = the value between 0 (close) to 1 (open)
-	msgsrv channelPlc1V(int v, int k){	
-		if(v == 1) {
-			valve.open() after(k);
-		}else if(v == 0) {
-			valve.close() after(k);	
-		}
-	}
-	msgsrv channelPlc2S(int v, int k){	
-		plc2.processSensorData(v) after(k);	
-	}
-	msgsrv channelPlc3P2(int v, int k){	
-		if(v == 1) {
-			pump2.on() after(k);
-		}else if(v == 0) {
-			pump2.off() after(k);	
-		}
-	}
-	msgsrv channelPlc3S(int v, int k){
-		plc3.processSensorData(v) after(k);	
-	}
-}
-
-
 main{
 	//the priorities are based on the feedback loop in a CPS, Process--->Sensor--->PLC--->Acturator
 	@priority(4)
@@ -980,24 +908,4 @@ main{
 	@priority(5)
 	Valve valve(tank1, tank2):();						
 	reverseUnit unit(tank2, tank3):();
-	//Attacker attacker1(plc1, plc2, plc3, pump1, pump2, valve):(1,1,25); 	//(chl, maliciousMsg, attackTime) 
-	//Attacker attacker2(plc1, plc2, plc3, pump1, pump2, valve):(1,0,0); 
 }
-//...............................attacker info...............................
-	/*
-	chl: is channel number, 		Channels
-		chl = 2 (channelPlc1P1),    plc1 <----- p1
-		chl = 1 (channelPlc1S),  	plc1 -----> s
-		chl = 3 (channelPlc1V), 	plc1 -----> v
-		chl = 4 (channelPlc2S), 	plc2 <----- s
-		chl = 5 (channelPlc3P2),	plc2 -----> p2
-		chl = 6 (channelPlc3S)		plc3 <----- s
-	maliciousMsg for sensor: 
-		the value between (1 to 3) 
-	attackTime for sensor: 
-		is the value between (0 to 25)
-	maliciousMsg for valve: 
-		the value between 0 (close) to 1 (open)
-	attackTime for pump: 
-		is the value between 0 (off) to 1 (on)
-	*/
