@@ -1,0 +1,1003 @@
+//Tank1 Initial Status
+env boolean tank1_low = true;
+env boolean tank1_medium = false;
+env boolean tank1_high = false;
+//Water level in Tank1 and Tank2 can be specified as input value, here we set in a range from 1 to 999 millimeters (0 (Underflow) and 1000 (Overflow))
+env int tank1_waterLevellowState = 0; // A range from 1 to 250 millimeters is condidered as low level
+env int tank1_waterLevelmediumState = 500; // A range from 250 to 750 millimeters is condidered as medium level
+env int tank1_waterLevelhighState = 1000;  // A range from 750 to 1000 millimeters is condidered as high level
+//----------------------------------------------------
+//Tank2 Initial Status
+env boolean tank2_low = true;
+env boolean tank2_medium = false;
+env boolean tank2_high = false;
+env int tank2_waterLevellowState = 0; 
+env int tank2_waterLevelmediumState = 500;
+env int tank2_waterLevelhighState = 1000;
+//----------------------------------------------------
+//Tank3 Initial Status
+//Tank3 changes in low and high level
+env boolean tank3_low = true;
+env boolean tank3_medium = false;
+env boolean tank3_high = false;
+env int tank3_waterLevellowState = 0;
+env int tank3_waterLevelhighState = 500;
+//----------------------------------------------------
+// Operation time for changing water level in each tank1 and tank2
+env int operationTimeTank1 = 5; //seconds
+env int operationTimeTank2 = 5;
+//----------------------------------------------------
+// Operation time for changing water level in each tank3
+env int operationTimeTank3 = 5; //seconds
+//----------------------------------------------------
+// Sense interval for each sensor
+env int senseInterval = 1;
+//----------------------------------------------------
+// Time out in PLC2 regarding two requests "openReq" and "onReq"
+env int timeOut = 0;
+
+/////////////////////////////////////////////////////////////////
+
+
+
+reactiveclass Tank1(10){
+	knownrebecs{
+		sensorTank1 sensor;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		// Increase and Decrease operation time.
+		int tank1Delay_operation; 
+		//Tank water level in millimeter
+		int status; 
+		int postStatus;
+		boolean changeWaterLevel;
+	}
+	Tank1(){
+		underFlow = false;
+		low = tank1_low; 
+		medium = tank1_medium;
+		high = tank1_high;
+		overFlow = false;
+		tank1Delay_operation = operationTimeTank1;
+		if (tank1_low == true) {status = tank1_waterLevellowState;}
+		else if (tank1_medium == true) {status = tank1_waterLevelmediumState;}
+		else if (tank1_high == true) {status = tank1_waterLevelhighState;}
+		postStatus = status;
+		changeWaterLevel = false;
+	}
+	@priority(1)
+	msgsrv status(){
+		// status: 0 to 4, respectively show underFlow,low,medium,high, and overFlow
+		if (underFlow){
+		sensor.reportStatus(0); 
+		} else if (low){
+		sensor.reportStatus(1);
+		} else if (medium){
+		sensor.reportStatus(2);
+		} else if (high){
+		sensor.reportStatus(3);
+		} else if (overFlow){
+		sensor.reportStatus(4);
+		}
+	}
+	@priority(2)
+	msgsrv waterIncrease(){	
+			if (changeWaterLevel == true) {
+			delay(tank1Delay_operation - 1);
+			status = status + 500;
+			changeWaterLevel = false;
+			if (status == 0) {
+				low = true;
+				medium = false;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				medium = true;
+				high = false;
+			} else if ((500 < status) && ( 1000 >= status)) { 
+				low = false;
+				medium = false;
+				high = true;
+			} else if (status > 1000) { 
+				overFlow = true;
+				}
+			}  else {
+				postStatus = postStatus + 500;		
+				self.process() after(1);
+			}	
+	}
+	@priority(2)
+	msgsrv waterDecrease(){	
+			if (changeWaterLevel == true) { 
+			delay(tank1Delay_operation - 1);
+			status = status - 500;
+			changeWaterLevel = false;
+			if (status == 0) {
+				low = true;
+				medium = false;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				medium = true;
+				high = false;
+			} else if ((500 < status) && ( 1000 >= status)) { 
+				low = false;
+				medium = false;
+				high = true;
+			} else if (status < 0) { 
+				underFlow = true;
+				}
+			}   else {
+			postStatus = postStatus - 500;		
+			self.process() after(1);
+			}	
+	}
+	@priority(3)
+	msgsrv process() {
+		if (postStatus - status == 0 && changeWaterLevel == false) {}//do nothing water increase and decrease samee time happen
+		else if (postStatus - status == 500 && changeWaterLevel == false) { changeWaterLevel = true; self.waterIncrease();}
+		else if (postStatus - status == -500 && changeWaterLevel == false) { changeWaterLevel = true; self.waterDecrease();}
+		else if (postStatus - status > 0 && changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterIncrease();
+				status  = postStatus - 500;
+				}
+		else if (postStatus - status < 0 && changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterDecrease();
+				status  = postStatus + 500;
+			}
+	}
+}
+
+
+reactiveclass sensorTank1(5){
+	knownrebecs{
+		Tank1	tank1;
+		PLC1	plc1;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		int sensing_interval;
+	}
+	sensorTank1(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false;
+		sensing_interval = senseInterval;
+		self.sense();	
+	}
+	msgsrv sense(){	
+		tank1.status();	
+	}
+	msgsrv reportStatus(int waterLevel) {	
+		if (waterLevel == 0) { 
+			underFlow = true;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = false;
+			plc1.processSensorData(0);
+		}else if (waterLevel == 1) {
+			underFlow = false;
+			low = true;
+			medium = false;
+			high = false;
+			overFlow = false;
+			plc1.processSensorData(1);
+		}else if (waterLevel == 2) {
+			underFlow = false;
+			low = false;
+			medium = true;
+			high = false;
+			overFlow = false;
+			plc1.processSensorData(2);
+		}else if (waterLevel == 3) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = true;
+			overFlow = false;
+			plc1.processSensorData(3);
+		}else if (waterLevel == 4) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = true;
+			plc1.processSensorData(4);
+		}	
+		tank1.status() after(sensing_interval);
+	}
+
+}
+
+
+
+reactiveclass PLC1(5){
+	knownrebecs{
+		Pump1 pump1;
+		Valve valve;
+		sensorTank1 sensor;
+	}
+	statevars{
+		boolean openReqPlc2;
+		//plc keeps last states of pump and valve
+		boolean pump1On;
+		boolean valveOpen;
+		int waterLevelTank1;
+	}
+	PLC1(){	 
+		openReqPlc2 = false;
+		pump1On = false;
+		valveOpen = false;
+		waterLevelTank1 = 0;
+	}
+	@priority(3)
+	msgsrv processSensorData(int waterLevel){
+		if (waterLevel == 1) { 
+			if (waterLevelTank1 != waterLevel) {
+				pump1.on();
+				pump1On = true;
+				//valve.close();
+				//valveOpen = false;
+			}
+		}else if (waterLevel == 2 && openReqPlc2 == true && pump1On == true && valveOpen == false) {
+				if (waterLevelTank1 != waterLevel) {
+					openReqPlc2 = false;
+					valve.open();
+					valveOpen = true; 
+				} 	
+		}else if (waterLevel == 2  && openReqPlc2 == true && pump1On == false && valveOpen == false) {
+				if (waterLevelTank1 != waterLevel) {
+					openReqPlc2 = false;
+					pump1.on();
+					pump1On = true;
+					valve.open();
+					valveOpen = true; 
+				}
+		}else if (waterLevel == 2 && pump1On == false) {
+				if (waterLevelTank1 != waterLevel) {
+					pump1.on();
+					pump1On = true;
+				}
+		/*}else if (waterLevel == 2 && pump1On == true && valveOpen == true) {
+				if (waterLevelTank1 != waterLevel) {
+					valve.close();
+					valveOpen = false;
+				}*/
+		}else if (waterLevel == 3 && openReqPlc2 == true && valveOpen == false && pump1On == false){ 
+					openReqPlc2 = false;
+					//pump1.off();
+					valve.open();
+					//pump1On = false;
+					valveOpen = true;
+		}else if (waterLevel == 3 && pump1On == true) {
+				if (waterLevelTank1 != waterLevel) {
+					pump1.off();
+					pump1On = false;
+				}
+		}	
+		waterLevelTank1 = waterLevel;	
+	}
+	
+	@priority(2)
+	msgsrv openReq(){
+		openReqPlc2 = true;
+	}
+	
+	@priority(1)
+	msgsrv closeReq(){
+		valveOpen = false;
+		valve.close();
+	}
+}
+
+
+reactiveclass Pump1(5){
+	knownrebecs{
+		Tank1 tank1;
+	}
+	statevars{
+		boolean on;
+	}
+	Pump1(){
+	 	on = false;	
+	}
+	@priority(2)
+	msgsrv on(){
+		if (on == true) {
+		} else {
+			on = true;
+			tank1.waterIncrease(); 
+			self.KeepOnpumping() after(operationTimeTank1);
+			}
+	}
+	@priority(3)
+	msgsrv KeepOnpumping(){
+		if (on == true) {
+			tank1.waterIncrease(); 
+			self.KeepOnpumping() after(operationTimeTank1);
+		}
+	}
+	@priority(1)
+	msgsrv off(){
+		on = false;	
+	}
+
+}
+
+reactiveclass Valve(5){
+	knownrebecs{
+		Tank1 tank1;
+		Tank2 tank2;
+	}
+	statevars{
+		boolean open;
+	}
+	Valve(){
+	 	open = false;
+	}
+	@priority(2)
+	msgsrv open(){
+			if (open == true) {
+			} else {
+			open = true;
+			tank2.waterIncrease();
+			tank1.waterDecrease();
+			self.KeepOnpumping() after(operationTimeTank1);
+			}
+	}
+	@priority(3)
+	msgsrv KeepOnpumping(){
+		if(open == true) {
+		tank2.waterIncrease();
+		tank1.waterDecrease();
+		self.KeepOnpumping() after(operationTimeTank1);
+		}
+	}
+	@priority(1)
+	msgsrv close(){
+		open = false;
+	}
+
+}
+
+
+
+reactiveclass Tank2(10){
+	knownrebecs{
+		sensorTank2 sensor;
+		reverseUnit unit;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		int tank2Delay_operation;
+		int status;
+		boolean changeWaterLevel;
+		int postStatus;
+		boolean drinkableWater;
+		int c;
+	}
+	Tank2(){
+		underFlow = false;
+		low = tank2_low; 
+		medium = tank2_medium;
+		overFlow = false;
+		tank2Delay_operation = operationTimeTank2;
+		if (tank2_low == true) {status = tank2_waterLevellowState;}
+		else if (tank2_medium == true) {status = tank2_waterLevelmediumState;}
+		else if (tank2_high == true) {status = tank2_waterLevelhighState;}
+		postStatus = status;
+		changeWaterLevel = false;
+		drinkableWater = false;
+		c = 0;
+	}
+	@priority(1)
+	msgsrv status(){	
+		if (underFlow){
+			sensor.reportStatus(0); 
+		}else if (low){
+			sensor.reportStatus(1);
+		}else if (medium){
+			sensor.reportStatus(2);
+		}else if (high){
+			sensor.reportStatus(3);
+		}else if (overFlow){
+			sensor.reportStatus(4);
+		}
+	}
+	@priority(2)
+	msgsrv waterIncrease(){	
+			if (changeWaterLevel == true) {
+				delay(tank2Delay_operation - 1);
+				status = status + 500;
+				changeWaterLevel = false;
+				if (status == 0) {
+				low = true;
+				medium = false;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				medium = true;
+				high = false;
+				unit.waterIncreaseTank3();
+			} else if ((500 < status) && ( 1000 >= status)) { 
+				low = false;
+				medium = false;
+				high = true;
+				unit.cleanWater();
+				//if (c == 3) {drinkableWater = true;}
+				//	c ++;
+			} else if (status > 1000) { 
+				overFlow = true;
+				}
+			} else {
+				postStatus = postStatus + 500;		
+				self.process() after(1);}
+					
+		}
+	@priority(2)
+	msgsrv waterDecrease(){	
+			if (changeWaterLevel == true){
+			delay(tank2Delay_operation - 1);
+			status = status - 500;
+			changeWaterLevel = false;
+			if (status == 0) {
+				low = true;
+				medium = false;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				medium = true;
+				high = false;
+				unit.waterIncreaseTank3();
+			} else if ((500 < status) && ( 1000 >= status)) { 
+				low = false;
+				medium = false;
+				high = true;
+			} else if (status < 0) { 
+				underFlow = true;
+				}
+			}else {
+			postStatus = postStatus - 500;		
+			self.process() after(1);
+			}		
+	}
+	
+	@priority(3)
+	msgsrv process() {
+		if (postStatus - status == 0 &&  changeWaterLevel == false) {}//do nothing water increase and decrease samee time happen
+		else if (postStatus - status == 500 &&  changeWaterLevel == false) { changeWaterLevel = true; self.waterIncrease();}
+		else if (postStatus - status == -500 &&  changeWaterLevel == false) { changeWaterLevel = true; self.waterDecrease();}
+		else if (postStatus - status > 0 &&  changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterIncrease();
+				status  = postStatus - 500;
+				}
+		else if (postStatus - status < 0  &&  changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterDecrease();
+				status  = postStatus + 500;
+			}
+	}
+
+}
+
+
+reactiveclass sensorTank2(5){
+	knownrebecs{
+		Tank2	tank2;
+		PLC2	plc2;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		int sensing_interval;
+	}
+	sensorTank2(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false;
+		sensing_interval = senseInterval; 
+		self.sense();	
+	}
+	msgsrv sense(){	
+		tank2.status();	
+	}
+	msgsrv reportStatus(int waterLevel) {	
+		if (waterLevel == 0) {
+			underFlow = true;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = false;
+			plc2.processSensorData(0);
+		}else if (waterLevel == 1) {
+			underFlow = false;
+			low = true;
+			medium = false;
+			high = false;
+			overFlow = false;
+			plc2.processSensorData(1);
+		}else if (waterLevel == 2) {
+			underFlow = false;
+			low = false;
+			medium = true;
+			high = false;
+			overFlow = false;
+			plc2.processSensorData(2);
+		}else if (waterLevel == 3) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = true;
+			overFlow = false;
+			plc2.processSensorData(3);
+		}else if (waterLevel == 4) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = true;
+			plc2.processSensorData(4);
+		}
+		tank2.status() after(sensing_interval);	
+	}
+
+}
+
+
+
+reactiveclass PLC2(5){
+	knownrebecs{
+		PLC1 plc1;
+		PLC3 plc3;
+		sensorTank2 sensor;
+	}
+	statevars{
+		boolean emptyTank;
+		boolean alternativeReq;
+		int time_out;
+		int waterLevelTank2;
+	}
+	PLC2(){	 
+		emptyTank = false;
+		alternativeReq = false;
+		time_out = timeOut;
+		waterLevelTank2 = 0;
+	}
+	msgsrv processSensorData(int waterLevel){
+		if (waterLevel == 3) { 
+			if (waterLevelTank2 != waterLevel) { 
+				plc1.closeReq();
+				// plc1 must send water to tank2 when the clean water flows out
+				//alternativeReq = false; 
+			}
+		}else if (waterLevel == 2) { 
+				//Assumption is that when water-level-tank2 = medium ---> onReq to plc3, 
+				//otherwise after time_out it run openReq
+				if (waterLevelTank2 == 3){
+							plc1.openReq();
+							plc1.closeReq() after(operationTimeTank1);
+							plc3.onReq() after(operationTimeTank1);
+							//plc3.onReq();
+							//alternativeReq = true;
+					} else
+				if (waterLevelTank2 != waterLevel) {
+						plc3.onReq() deadline(time_out);
+						plc1.closeReq() after(operationTimeTank3);
+				}
+					/*
+					if (alternativeReq == true) {
+							//plc1.closeReq() deadline(time_out);
+							//alternativeReq = false;
+							plc3.onReq(); 
+							alternativeReq = false;
+					} else else {
+						// time_out
+						//plc3.onReq() deadline(time_out);
+						plc1.closeReq() after(tank3Delay_operation);
+						alternativeReq = true;
+					}
+					*/
+		}else if (waterLevel == 1) { 
+				if (waterLevelTank2 != waterLevel) {
+					//Assumption is that when water-level-tank2 = low ---> openReq to plc1
+					plc1.openReq(); 
+				}
+		} 
+		waterLevelTank2 = waterLevel;
+	}
+
+}
+
+
+reactiveclass reverseUnit(5){
+	knownrebecs{
+		Tank2 tank2;
+		Tank3 tank3;
+	}
+	statevars {
+		boolean drinkableWater;
+	}
+	reverseUnit(){
+		drinkableWater = false;
+	}
+	msgsrv waterIncreaseTank3(){
+		tank2.waterDecrease();
+		tank3.waterIncrease();
+	}
+	msgsrv cleanWater(){
+		tank2.waterDecrease();
+		drinkableWater = true;
+	}
+}
+
+
+
+reactiveclass Tank3(10){
+	knownrebecs{
+		sensorTank3 sensor;
+		Tank2 tank2;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		int tank3Delay_operation;
+		int status;
+		int postStatus;
+		boolean changeWaterLevel;
+	}
+	Tank3(){
+		underFlow = false;
+		low = tank3_low; 
+		medium = tank3_medium;
+		high = tank3_high;
+		overFlow = false;
+		tank3Delay_operation = operationTimeTank3;
+		if (tank3_low == true) {status = tank3_waterLevellowState;}
+		//else if (tank3_medium == true) {status = 250;} /// it is not used for this tank
+		else if (tank3_high == true) {status = tank3_waterLevelhighState;}
+		postStatus = status;
+		changeWaterLevel = false;
+	}
+	@priority(1)
+	msgsrv status(){	
+		if (underFlow){
+		sensor.reportStatus(0); // 1 means status= low, 2 means status= medium, ...
+		}else if (low){
+		sensor.reportStatus(1);
+		}else if (medium){
+		sensor.reportStatus(2);
+		}else if (high){
+		sensor.reportStatus(3);
+		}else if (overFlow){
+		sensor.reportStatus(4);
+		}
+	}
+	@priority(2)
+	msgsrv waterIncrease(){	
+			if (changeWaterLevel == true) {
+			delay(tank3Delay_operation  - 1);
+			status = status + 500;
+			changeWaterLevel = false;
+			if (status == 0) {
+				low = true;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				high = true;
+			} else if (status > 500) { 
+				overFlow = true;
+			} 
+			} else {
+			postStatus = postStatus + 500;		
+			self.process() after(1);
+			}	
+		}
+	@priority(2)
+	msgsrv waterDecrease(){	
+			if (changeWaterLevel == true) {
+			delay(tank3Delay_operation -  1);
+			status = status - 500;
+			changeWaterLevel = false;
+			if (status == 0) {
+				low = true;
+				high = false;
+			} else if ((1 <= status) && ( 500 >= status)) { 
+				low = false;
+				high = true;
+			} else if (status < 0) { 
+				underFlow = true;
+			} 
+		}else {
+			postStatus = postStatus - 500;		
+			self.process() after(1);
+			}		
+	}
+	
+	@priority(3)
+	msgsrv process() {
+		if (postStatus - status == 0 &&  changeWaterLevel == false) {}//do nothing water increase and decrease samee time happen
+		else if (postStatus - status == 500  &&  changeWaterLevel == false) { changeWaterLevel = true; self.waterIncrease();}
+		else if (postStatus - status == -500 &&  changeWaterLevel == false) { changeWaterLevel = true; self.waterDecrease();}
+		else if (postStatus - status > 0 &&  changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterIncrease();
+				status = postStatus - 500;
+				}
+		else if (postStatus - status < 0  &&  changeWaterLevel == false) { 
+				changeWaterLevel = true; self.waterDecrease();
+				status = postStatus + 500;
+			}
+	}
+	
+}
+
+reactiveclass sensorTank3(5){
+	knownrebecs{
+		Tank3	tank3;
+		PLC3	plc3;
+	}
+	statevars{
+		boolean underFlow,low,medium,high,overFlow;
+		int sensing_interval;
+	}
+	sensorTank3(){
+		underFlow = false;
+		low = false;
+		medium = false;
+		high = false;
+		overFlow = false;
+		sensing_interval = senseInterval;
+		self.sense();	
+	}
+	msgsrv sense(){	
+		tank3.status();	
+	}
+	msgsrv reportStatus(int waterLevel) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = false;	
+		if (waterLevel == 0) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = true;
+			plc3.processSensorData(0);
+		}else if (waterLevel == 1) {
+			underFlow = false;
+			low = true;
+			medium = false;
+			high = false;
+			overFlow = false;
+			plc3.processSensorData(1);
+		}else if (waterLevel == 2) {
+			underFlow = false;
+			low = false;
+			medium = true;
+			high = false;
+			overFlow = false;
+			plc3.processSensorData(2);
+		}else if (waterLevel == 3) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = true;
+			overFlow = false;
+			plc3.processSensorData(3);
+		}else if (waterLevel == 4) {
+			underFlow = false;
+			low = false;
+			medium = false;
+			high = false;
+			overFlow = true;
+			plc3.processSensorData(4);
+		}
+		tank3.status() after(sensing_interval);	
+	}
+
+}
+
+reactiveclass PLC3(5){
+	knownrebecs{
+		Pump2 pump2;
+		Tank3 tank3;
+		sensorTank3 sensor;
+	}
+	statevars{
+		boolean onReqPlc2;
+		boolean pump2On;
+		int waterLevelTank3;
+	}
+	PLC3(){	 
+		onReqPlc2 = false;
+		pump2On = false;
+		waterLevelTank3 = 0;
+	}
+	@priority(2)
+	msgsrv processSensorData(int waterLevel){
+		if (waterLevel == 1) { 
+			if (waterLevelTank3 != waterLevel) {
+				pump2.off();
+				pump2On = false;
+			}
+		}else if (waterLevel == 3 && onReqPlc2 == true && pump2On == false) {
+				if (waterLevelTank3 != waterLevel) {
+					onReqPlc2 = false;
+					pump2.on();
+					pump2On = true;
+				}
+		}else if (waterLevel == 3 && onReqPlc2 == false) {
+				if (waterLevelTank3 != waterLevel) {
+					pump2.off();
+					pump2On = false;
+				}
+		}
+		waterLevelTank3 = waterLevel;		
+	}
+	@priority(1)
+	msgsrv onReq(){
+		onReqPlc2 = true;
+	}
+
+}
+
+reactiveclass Pump2(5){
+	knownrebecs{
+		Tank2 tank2;
+		Tank3 tank3;
+	}
+	statevars{
+		boolean on;
+	}
+	Pump2(){
+	 	on = false;	 	
+	}
+	@priority(2)
+	msgsrv on(){
+		if (on == true){
+		} else {
+		on = true;
+		tank3.waterDecrease();
+		tank2.waterIncrease();
+		self.KeepOnpumping() after(operationTimeTank3);
+		}
+	}
+	@priority(3)
+	msgsrv KeepOnpumping(){
+		if(on == true) {
+		tank3.waterDecrease();
+		tank2.waterIncrease();
+		self.KeepOnpumping() after(operationTimeTank3);
+		}
+	}
+	@priority(1)
+	msgsrv off(){
+		on = false;	
+	}
+
+}
+
+
+//--------------------------Attacker------------------------------------
+// It injects fake messages and commands in the wireless channel between one plc and one sensor/actuator (valve or pump)
+reactiveclass Attacker(3){
+	knownrebecs{
+		PLC1	plc1;
+		PLC2	plc2;
+		PLC3	plc3;
+		Pump1	pump1;
+		Pump2	pump2;
+		Valve	valve;
+	}
+	statevars{
+		int msg; 
+		int attackTime; 
+	}
+	Attacker(int chl, int maliciousMsg, int time){
+		msg = maliciousMsg;
+		attackTime = time;
+	 	//chl = 1 (channelPlc1P1), chl = 2 (channelPlc1S), chl = 3 (channelPlc1V), 
+	 	//chl = 4 (channelPlc2S), chl = 5 (channelPlc3P2), chl = 6 (channelPlc3S)
+	 	if (chl == 1) { 
+	 		self.channelPlc1P1(msg, attackTime);
+	 	}else if (chl == 2) {
+	 		self.channelPlc1S(msg, attackTime);
+	 	}else if (chl == 3) {
+	 		self.channelPlc1V(msg, attackTime);
+	 	}else if (chl == 4) {
+	 		self.channelPlc2S(msg, attackTime);
+	 	}else if (chl == 5) {
+	 		self.channelPlc3P2(msg, attackTime);
+	 	}else if (chl == 6) {
+	 		self.channelPlc3S(msg, attackTime);
+	 	}	 	
+	}
+	//v = the value between 1 to 3 for the sensor (low,medium,and high)
+	//k = the value between 0 to 27 (duration cycle of start-up to flow drinkablewater out)
+	msgsrv channelPlc1S(int v, int k){	
+		plc1.processSensorData(v) after(k);	
+	}
+	//v = the value between 0 (off) to 1 (on) 
+	msgsrv channelPlc1P1(int v, int k){ 
+		if(v == 1) {
+			pump1.on() after(k);
+		}else if(v == 0) {
+			pump1.off() after(k);	
+		}
+	}
+	//status = the value between 0 (close) to 1 (open)
+	msgsrv channelPlc1V(int v, int k){	
+		if(v == 1) {
+			valve.open() after(k);
+		}else if(v == 0) {
+			valve.close() after(k);	
+		}
+	}
+	msgsrv channelPlc2S(int v, int k){	
+		plc2.processSensorData(v) after(k);	
+	}
+	msgsrv channelPlc3P2(int v, int k){	
+		if(v == 1) {
+			pump2.on() after(k);
+		}else if(v == 0) {
+			pump2.off() after(k);	
+		}
+	}
+	msgsrv channelPlc3S(int v, int k){
+		plc3.processSensorData(v) after(k);	
+	}
+}
+
+
+main{
+	//the priorities are based on the feedback loop in a CPS, Process--->Sensor--->PLC--->Acturator
+	@priority(4)
+	PLC1 plc1(pump1, valve, sensor1):();				
+	@priority(3)
+	PLC2 plc2(plc1, plc3, sensor2):();
+	@priority(4)
+	PLC3 plc3(pump2, tank3, sensor3):();
+	@priority(1)
+	Tank1 tank1(sensor1):();				
+	@priority(1)
+	Tank2 tank2(sensor2, unit):();
+	@priority(1)
+	Tank3 tank3(sensor3, tank2):();
+	@priority(2)
+	sensorTank1 sensor1(tank1, plc1):();
+	@priority(2)
+	sensorTank2 sensor2(tank2, plc2):();	
+	@priority(2)
+	sensorTank3 sensor3(tank3, plc3):();
+	@priority(5)
+	Pump1 pump1(tank1):();
+	@priority(5)
+	Pump2 pump2(tank2, tank3):();
+	@priority(5)
+	Valve valve(tank1, tank2):();						
+	reverseUnit unit(tank2, tank3):();
+	//Attacker attacker1(plc1, plc2, plc3, pump1, pump2, valve):(1,1,25); 	//(chl, maliciousMsg, attackTime) 
+	//Attacker attacker2(plc1, plc2, plc3, pump1, pump2, valve):(1,0,0); 
+}
+//...............................attacker info...............................
+	/*
+	chl: is channel number, 		Channels
+		chl = 2 (channelPlc1P1),    plc1 <----- p1
+		chl = 1 (channelPlc1S),  	plc1 -----> s
+		chl = 3 (channelPlc1V), 	plc1 -----> v
+		chl = 4 (channelPlc2S), 	plc2 <----- s
+		chl = 5 (channelPlc3P2),	plc2 -----> p2
+		chl = 6 (channelPlc3S)		plc3 <----- s
+	maliciousMsg for sensor: 
+		the value between (1 to 3) 
+	attackTime for sensor: 
+		is the value between (0 to 25)
+	maliciousMsg for valve: 
+		the value between 0 (close) to 1 (open)
+	attackTime for pump: 
+		is the value between 0 (off) to 1 (on)
+	*/
