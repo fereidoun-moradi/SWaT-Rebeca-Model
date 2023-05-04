@@ -12,9 +12,10 @@ The developed  <a href="https://itrust.sutd.edu.sg/testbeds/secure-water-treatme
 
 
 The Timed Rebeca model augmented with attacks. The written properties are as follows.
+
 <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_V2023_attackmodel.rebeca">Timed Rebeca model augmented with attacks</a>.</p>
 
-<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Picture.pdf">Properties</a>.</p>
+<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_V2023_attackmodel.property">Properties</a>.</p>
 
 
 # Lingua Franca
