@@ -10,6 +10,13 @@ The developed  <a href="https://itrust.sutd.edu.sg/testbeds/secure-water-treatme
     
   </body>
 
+
+The Timed Rebeca model augmented with attacks. The written properties are as follows.
+<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Picture.pdf">SWaT Picture</a>.</p>
+
+<a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_Picture.pdf">SWaT Picture</a>.</p>
+
+
 # Lingua Franca
 Lingua Franca programing language is used to develop an executable file. The <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT.lf">code</a> is compiled by Lingua Franca compiler.
 The code <a href="https://github.com/fereidoun-moradi/SWaT-Rebeca-Model/blob/master/SWaT_LF_Diagram.png">diagram</a> shows the reactors and the reactions.
